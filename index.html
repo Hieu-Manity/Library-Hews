@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Libraray Hews</title>
+    <title>Trail Tracker | Shared Progress Board</title>
     <link rel="stylesheet" href="style.css">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -12,12 +12,13 @@
 <div class="container">
     <div class="header">
         <h1>
-            <span></span> Hew Tracker
+            <span>🌿</span> Hew Tracker
         </h1>
+        <div class="subhead">mark what you've seen — shared across everyone</div>
     </div>
 
     <div class="score-card">
-        <div class="score-text">Total seen</div>
+        <div class="score-text">🎯 Total seen</div>
         <div class="score-number">
             <span id="seenCount">0</span> / <span id="totalEnabled">100</span>
         </div>
@@ -46,8 +47,8 @@
             <button class="filter-btn" data-filter="seen">seen</button>
         </div>
         <div class="admin-area">
-            <button id="adminLoginBtn" class="admin-toggle">admin login</button>
-            <button id="adminToggleBtn" class="admin-toggle" style="display: none;">admin mode</button>
+            <button id="adminLoginBtn" class="admin-toggle">🔑 admin login</button>
+            <button id="adminToggleBtn" class="admin-toggle" style="display: none;">🔧 admin mode</button>
         </div>
     </div>
 
@@ -82,14 +83,6 @@
     </div>
 </div>
 
-<script src="script.js"></script>
-
-<!-- Add this inside the .toolbar div, next to admin-area -->
-<div class="admin-area">
-    <button id="adminLoginBtn" class="admin-toggle">🔑 admin login</button>
-    <button id="adminToggleBtn" class="admin-toggle" style="display: none;">🔧 admin mode</button>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js"></script>
 </body>
 </html>
