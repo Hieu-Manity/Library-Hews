@@ -29,7 +29,6 @@ async function loadGlobalState() {
     
     if (error) {
         if (error.code === 'PGRST116') {
-            // No data found, initialize
             await initializeGlobalState();
             return loadGlobalState();
         }
@@ -226,22 +225,15 @@ function renderGrid() {
         tile.innerText = num;
         
         if (enabled && !seen) {
-            // Not seen yet -> click to mark
             tile.style.cursor = 'pointer';
             tile.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 if (await markAsSeen(num)) {
                     renderGrid();
                     updateStatsAndScore();
-                    // Show brief feedback
-                    const btn = document.getElementById('globalResetBtn');
-                    const original = btn.innerText;
-                    btn.innerText = `✓ marked ${num}`;
-                    setTimeout(() => { btn.innerText = original; }, 1200);
                 }
             });
         } else if (seen) {
-            // Already seen -> only admin can unmark
             tile.style.cursor = isAdmin ? 'pointer' : 'default';
             tile.title = isAdmin ? "Admin: Click to reset this number" : "Already marked";
             if (isAdmin) {
@@ -291,26 +283,12 @@ function promptAdminKey() {
     if (key === ADMIN_SECRET) {
         isAdmin = true;
         alert("✅ Admin mode enabled. You can now reset individual numbers by clicking on marked tiles.");
-        document.getElementById('adminToggleBtn').style.display = 'inline-block';
         document.getElementById('adminLoginBtn').style.display = 'none';
-        renderGrid(); // re-render with admin click handlers
+        document.getElementById('adminPanel').classList.add('show');
+        renderAdminToggles();
+        renderGrid();
     } else if (key !== null) {
         alert("❌ Invalid admin key.");
-    }
-}
-
-function toggleAdminMode() {
-    const panel = document.getElementById('adminPanel');
-    const btn = document.getElementById('adminToggleBtn');
-    if (panel.classList.contains('show')) {
-        panel.classList.remove('show');
-        btn.classList.remove('active');
-        btn.innerText = '🔧 admin mode';
-    } else {
-        panel.classList.add('show');
-        btn.classList.add('active');
-        btn.innerText = '🔒 exit admin';
-        renderAdminToggles();
     }
 }
 
@@ -327,10 +305,54 @@ function setFilter(filter) {
     renderGrid();
 }
 
+// ========== EXPORT/IMPORT FUNCTIONS ==========
+function exportData() {
+    const data = {
+        enabledNumbers: enabledNumbers,
+        seenNumbers: seenNumbers,
+        exportDate: new Date().toISOString()
+    };
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trail-tracker-backup-${new Date().toISOString().slice(0,19)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importData(file) {
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (data.enabledNumbers && Array.isArray(data.enabledNumbers)) {
+                enabledNumbers = data.enabledNumbers;
+                await saveEnabledNumbers(enabledNumbers);
+            }
+            if (data.seenNumbers && typeof data.seenNumbers === 'object') {
+                seenNumbers = data.seenNumbers;
+                await saveSeenNumbers(seenNumbers);
+            }
+            alert("✅ Data imported successfully!");
+            renderGrid();
+            updateStatsAndScore();
+            renderAdminToggles();
+        } catch (err) {
+            alert("❌ Invalid backup file");
+        }
+    };
+    reader.readAsText(file);
+}
+
 // ========== INITIALIZATION ==========
 async function init() {
     // Show loading state
-    document.getElementById('tilesGrid').innerHTML = '<div style="text-align:center; padding:2rem;">Loading...</div>';
+    const grid = document.getElementById('tilesGrid');
+    if (grid) {
+        grid.innerHTML = '<div style="text-align:center; padding:2rem;">Loading...</div>';
+    }
     
     const state = await loadGlobalState();
     if (state) {
@@ -344,15 +366,52 @@ async function init() {
     setupRealtimeSync();
     
     // Event listeners
-    document.getElementById('globalResetBtn').addEventListener('click', resetAllSeenMarks);
-    document.getElementById('adminLoginBtn').addEventListener('click', promptAdminKey);
-    document.getElementById('adminToggleBtn').addEventListener('click', toggleAdminMode);
-    document.getElementById('enableAllBtn').addEventListener('click', async () => { 
-        await adminEnableAll(); 
-    });
-    document.getElementById('disableAllBtn').addEventListener('click', async () => { 
-        await adminDisableAll(); 
-    });
+    const resetBtn = document.getElementById('resetAllSeenBtn');
+    if (resetBtn) resetBtn.addEventListener('click', resetAllSeenMarks);
+    
+    const fullResetBtn = document.getElementById('fullResetBtn');
+    if (fullResetBtn) {
+        fullResetBtn.addEventListener('click', async () => {
+            if (confirm("💀 FULL RESET: This will reset ALL data (enabled numbers AND seen marks). Are you absolutely sure?")) {
+                await adminEnableAll();
+                seenNumbers = {};
+                await saveSeenNumbers(seenNumbers);
+                alert("Full reset complete!");
+            }
+        });
+    }
+    
+    const adminLoginBtn = document.getElementById('adminLoginBtn');
+    if (adminLoginBtn) adminLoginBtn.addEventListener('click', promptAdminKey);
+    
+    const enableAllBtn = document.getElementById('enableAllBtn');
+    if (enableAllBtn) {
+        enableAllBtn.addEventListener('click', async () => { 
+            await adminEnableAll(); 
+        });
+    }
+    
+    const disableAllBtn = document.getElementById('disableAllBtn');
+    if (disableAllBtn) {
+        disableAllBtn.addEventListener('click', async () => { 
+            await adminDisableAll(); 
+        });
+    }
+    
+    const exportBtn = document.getElementById('exportDataBtn');
+    if (exportBtn) exportBtn.addEventListener('click', exportData);
+    
+    const importBtn = document.getElementById('importDataBtn');
+    const importFileInput = document.getElementById('importFileInput');
+    if (importBtn && importFileInput) {
+        importBtn.addEventListener('click', () => importFileInput.click());
+        importFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                importData(e.target.files[0]);
+                importFileInput.value = '';
+            }
+        });
+    }
     
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
