@@ -11,7 +11,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_RZl-L3TTQMOaujRsJr7FpA_lzLDN7AC';
 const ADMIN_SECRET = 'my-secret-admin-key-123';
 
 // Initialize Supabase
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Add this debug code right after creating supabase client
 console.log("Script starting...");
@@ -71,7 +71,7 @@ let currentFilter = 'all';
 
 // ========== DATABASE OPERATIONS ==========
 async function loadGlobalState() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('trail_state')
         .select('*')
         .eq('id', 1)
@@ -90,7 +90,7 @@ async function loadGlobalState() {
 
 async function initializeGlobalState() {
     const defaultEnabled = Array.from({ length: 100 }, (_, i) => i + 1);
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('trail_state')
         .insert({
             id: 1,
@@ -102,7 +102,7 @@ async function initializeGlobalState() {
 }
 
 async function saveEnabledNumbers(enabledArr) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('trail_state')
         .update({ enabled_numbers: enabledArr })
         .eq('id', 1);
@@ -116,7 +116,7 @@ async function saveEnabledNumbers(enabledArr) {
 }
 
 async function saveSeenNumbers(seenObj) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('trail_state')
         .update({ seen_numbers: seenObj })
         .eq('id', 1);
@@ -130,7 +130,7 @@ async function saveSeenNumbers(seenObj) {
 
 // ========== REAL-TIME SYNC ==========
 function setupRealtimeSync() {
-    supabase
+    supabaseClient
         .channel('trail_changes')
         .on('postgres_changes', 
             { event: 'UPDATE', schema: 'public', table: 'trail_state' },
