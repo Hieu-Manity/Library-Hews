@@ -10,6 +10,251 @@ const SUPABASE_ANON_KEY = 'sb_publishable_RZl-L3TTQMOaujRsJr7FpA_lzLDN7AC';
 // !!! SET YOUR SECRET ADMIN KEY (only you know this) !!!
 const ADMIN_SECRET = 'my-secret-admin-key-123';
 
+// Initialize Supabase client
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+console.log("Script starting...");
+console.log("Supabase URL:", SUPABASE_URL);
+
+// State
+let enabledNumbers = [];
+let seenNumbers = {};
+let isAdmin = false;
+let currentFilter = 'all';
+let isInitializing = false; // Prevent multiple simultaneous initializations
+
+// ========== DATABASE OPERATIONS ==========
+async function loadGlobalState() {
+    try {
+        console.log("Loading global state...");
+        const { data, error } = await supabaseClient
+            .from('trail_state')
+            .select('*')
+            .eq('id', 1)
+            .single();
+        
+        if (error) {
+            console.error("Error loading state:", error);
+            
+            // Only try to initialize if it's a "not found" error and we're not already initializing
+            if (error.code === 'PGRST116' && !isInitializing) {
+                console.log("No state found, attempting to initialize...");
+                const success = await initializeGlobalState();
+                if (success) {
+                    return loadGlobalState(); // Try loading again
+                }
+            }
+            return null;
+        }
+        console.log("State loaded successfully:", data);
+        return data;
+    } catch (err) {
+        console.error("Unexpected error in loadGlobalState:", err);
+        return null;
+    }
+}
+
+async function initializeGlobalState() {
+    if (isInitializing) {
+        console.log("Already initializing, skipping...");
+        return false;
+    }
+    
+    isInitializing = true;
+    
+    try {
+        const defaultEnabled = Array.from({ length: 100 }, (_, i) => i + 1);
+        console.log("Attempting to insert initial state...");
+        
+        const { data, error } = await supabaseClient
+            .from('trail_state')
+            .insert({
+                id: 1,
+                enabled_numbers: defaultEnabled,
+                seen_numbers: {}
+            })
+            .select();
+        
+        if (error) {
+            console.error('Init error details:', error);
+            
+            // Check for specific RLS error
+            if (error.code === '42501') {
+                console.error('RLS POLICY ERROR: Please enable anonymous inserts in Supabase!');
+                showRLSErrorMessage();
+            }
+            return false;
+        }
+        
+        console.log("Initial state created successfully:", data);
+        return true;
+    } catch (err) {
+        console.error("Exception during initialization:", err);
+        return false;
+    } finally {
+        isInitializing = false;
+    }
+}
+
+// Show helpful error message in the UI
+function showRLSErrorMessage() {
+    const grid = document.getElementById('tilesGrid');
+    if (grid) {
+        grid.innerHTML = `
+            <div style="text-align:center; padding:2rem; background:#fff3f3; border:2px solid #ff0000; border-radius:8px;">
+                <h3 style="color:#ff0000;">⚠️ Supabase Configuration Required</h3>
+                <p>Please enable Row Level Security (RLS) for anonymous access:</p>
+                <ol style="text-align:left; display:inline-block; margin:1rem auto;">
+                    <li>Go to your <strong>Supabase Dashboard</strong></li>
+                    <li>Select <strong>Authentication → Policies</strong></li>
+                    <li>Find the <strong>trail_state</strong> table</li>
+                    <li>Add policy for <strong>INSERT</strong> and <strong>SELECT</strong> operations</li>
+                    <li>Set policy to: <code>true</code> (for testing) or <code>auth.role() = 'authenticated'</code></li>
+                </ol>
+                <p><button onclick="location.reload()" style="padding:8px 16px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer;">Retry</button></p>
+            </div>
+        `;
+    }
+}
+
+async function saveEnabledNumbers(enabledArr) {
+    const { error } = await supabaseClient
+        .from('trail_state')
+        .update({ enabled_numbers: enabledArr })
+        .eq('id', 1);
+    
+    if (error) {
+        console.error('Error saving enabled numbers:', error);
+        if (error.code === '42501') {
+            showRLSErrorMessage();
+        }
+        return false;
+    }
+    
+    enabledNumbers = enabledArr;
+    renderAdminToggles();
+    renderGrid();
+    updateStatsAndScore();
+    return true;
+}
+
+async function saveSeenNumbers(seenObj) {
+    const { error } = await supabaseClient
+        .from('trail_state')
+        .update({ seen_numbers: seenObj })
+        .eq('id', 1);
+    
+    if (error) {
+        console.error('Error saving seen numbers:', error);
+        if (error.code === '42501') {
+            showRLSErrorMessage();
+        }
+        return false;
+    }
+    
+    seenNumbers = seenObj;
+    renderGrid();
+    updateStatsAndScore();
+    return true;
+}
+
+// ========== REAL-TIME SYNC ==========
+function setupRealtimeSync() {
+    supabaseClient
+        .channel('trail_changes')
+        .on('postgres_changes', 
+            { event: 'UPDATE', schema: 'public', table: 'trail_state' },
+            (payload) => {
+                console.log("Realtime update received:", payload);
+                if (payload.new.enabled_numbers) {
+                    enabledNumbers = payload.new.enabled_numbers;
+                }
+                if (payload.new.seen_numbers) {
+                    seenNumbers = payload.new.seen_numbers;
+                }
+                renderGrid();
+                updateStatsAndScore();
+                renderAdminToggles();
+            }
+        )
+        .subscribe((status) => {
+            console.log("Realtime subscription status:", status);
+        });
+}
+
+// The rest of your functions remain the same...
+// (keep all your existing functions: isEnabled, isSeen, markAsSeen, 
+// adminResetSingleNumber, resetAllSeenMarks, adminEnableNumber, 
+// adminDisableNumber, adminEnableAll, adminDisableAll, computeStats, 
+// updateStatsAndScore, renderGrid, renderAdminToggles, promptAdminKey, 
+// setFilter, exportData, importData)
+
+// Just make sure to update all supabase references to supabaseClient
+// For brevity, I'm showing the key functions above - update all others similarly
+
+// ========== INITIALIZATION ==========
+async function init() {
+    try {
+        console.log("Init function started...");
+        
+        // Show loading state
+        const grid = document.getElementById('tilesGrid');
+        if (grid) {
+            grid.innerHTML = '<div style="text-align:center; padding:2rem;">Loading Supabase data...</div>';
+        } else {
+            console.error("tilesGrid element NOT FOUND!");
+            return;
+        }
+        
+        const state = await loadGlobalState();
+        console.log("State loaded:", state);
+        
+        if (state) {
+            enabledNumbers = state.enabled_numbers;
+            seenNumbers = state.seen_numbers;
+            console.log("Enabled numbers:", enabledNumbers.length);
+            console.log("Seen numbers:", Object.keys(seenNumbers).length);
+        } else if (!state && !isInitializing) {
+            // If no state and not initializing, show error
+            console.error("Failed to load or initialize state");
+            if (grid) {
+                grid.innerHTML = '<div style="text-align:center; padding:2rem; color:red;">Failed to load data. Check console for details.</div>';
+            }
+            return;
+        }
+        
+        renderGrid();
+        console.log("Grid rendered");
+        
+        updateStatsAndScore();
+        renderAdminToggles();
+        setupRealtimeSync();
+        
+        // Event listeners setup (keep your existing ones)
+        // ... rest of your init code ...
+        
+    } catch (error) {
+        console.error("Init failed:", error);
+        const grid = document.getElementById('tilesGrid');
+        if (grid) {
+            grid.innerHTML = `<div style="text-align:center; padding:2rem; color:red;">Error: ${error.message}<br><br>Check console for details.</div>`;
+        }
+    }
+}
+
+// Start the app
+init();// ============================================
+// TRAIL TRACKER - SUPABASE BACKEND
+// TRUE CROSS-USER SHARING
+// ============================================
+
+// !!! REPLACE THESE WITH YOUR SUPABASE CREDENTIALS !!!
+const SUPABASE_URL = 'https://irkzyzzmgeujmcwrfduw.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_RZl-L3TTQMOaujRsJr7FpA_lzLDN7AC';
+
+// !!! SET YOUR SECRET ADMIN KEY (only you know this) !!!
+const ADMIN_SECRET = 'my-secret-admin-key-123';
+
 // Initialize Supabase
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
