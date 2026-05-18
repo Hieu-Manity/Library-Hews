@@ -13,6 +13,56 @@ const ADMIN_SECRET = 'my-secret-admin-key-123';
 // Initialize Supabase
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Add this debug code right after creating supabase client
+console.log("Script starting...");
+console.log("Supabase URL:", SUPABASE_URL);
+console.log("Looking for element: tilesGrid");
+const testGrid = document.getElementById('tilesGrid');
+console.log("tilesGrid element found:", testGrid);
+
+// Wrap init in try-catch
+async function init() {
+    try {
+        console.log("Init function started");
+        
+        // Show loading state
+        const grid = document.getElementById('tilesGrid');
+        if (grid) {
+            grid.innerHTML = '<div style="text-align:center; padding:2rem;">Loading Supabase data...</div>';
+            console.log("Loading message displayed");
+        } else {
+            console.error("tilesGrid element NOT FOUND!");
+            return;
+        }
+        
+        const state = await loadGlobalState();
+        console.log("State loaded:", state);
+        
+        if (state) {
+            enabledNumbers = state.enabled_numbers;
+            seenNumbers = state.seen_numbers;
+            console.log("Enabled numbers:", enabledNumbers.length);
+            console.log("Seen numbers:", Object.keys(seenNumbers).length);
+        }
+        
+        renderGrid();
+        console.log("Grid rendered");
+        
+        updateStatsAndScore();
+        renderAdminToggles();
+        setupRealtimeSync();
+        
+        // Event listeners (rest of your init code...)
+        
+    } catch (error) {
+        console.error("Init failed:", error);
+        const grid = document.getElementById('tilesGrid');
+        if (grid) {
+            grid.innerHTML = `<div style="text-align:center; padding:2rem; color:red;">Error: ${error.message}<br><br>Check console for details.</div>`;
+        }
+    }
+}
+
 // State
 let enabledNumbers = [];
 let seenNumbers = {};
