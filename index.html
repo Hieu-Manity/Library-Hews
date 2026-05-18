@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Trail Tracker | Shared Progress Board</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>
+            <span>🌿</span> Trail Tracker
+        </h1>
+        <div class="subhead">mark what you've seen — shared across everyone</div>
+    </div>
+
+    <div class="score-card">
+        <div class="score-text">🎯 Total seen</div>
+        <div class="score-number">
+            <span id="seenCount">0</span> / <span id="totalEnabled">100</span>
+        </div>
+        <button id="globalResetBtn" class="reset-btn">⟳ reset all marks (admin only)</button>
+    </div>
+
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-label">active items</div>
+            <div class="stat-value" id="activeStat">100</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">remaining</div>
+            <div class="stat-value" id="remainingStat">100</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">progress</div>
+            <div class="stat-value" id="percentStat">0%</div>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <div class="filter-group">
+            <button class="filter-btn active" data-filter="all">all</button>
+            <button class="filter-btn" data-filter="active">active</button>
+            <button class="filter-btn" data-filter="seen">seen</button>
+        </div>
+        <div class="admin-area">
+            <button id="adminLoginBtn" class="admin-toggle">🔑 admin login</button>
+            <button id="adminToggleBtn" class="admin-toggle" style="display: none;">🔧 admin mode</button>
+        </div>
+    </div>
+
+    <!-- THE NUMBER GRID - 1 to 100 -->
+    <div id="tilesGrid" class="grid">
+        <!-- dynamic tiles injected here -->
+    </div>
+
+    <!-- Admin panel (visible only when admin mode is toggled) -->
+    <div id="adminPanel" class="admin-panel">
+        <div class="admin-title">
+            <span>⚙️</span> Edit trail (enable / disable items)
+        </div>
+        <p style="font-size: 0.8rem; margin-bottom: 1rem; color: #5c7c4a;">
+            Disabled numbers disappear from the active hunt and don't count toward the total.
+            Changes affect all users instantly.
+        </p>
+        <div class="batch-buttons">
+            <button id="enableAllBtn" class="batch-btn">✅ enable all 1–100</button>
+            <button id="disableAllBtn" class="batch-btn">❌ disable all</button>
+        </div>
+        <div id="toggleList" class="toggle-grid">
+            <!-- per-number toggle will be inserted -->
+        </div>
+        <p style="font-size: 0.7rem; margin-top: 1rem; color: #85a875;">
+            💡 Tip: click any number to enable/disable it. Disabled items cannot be marked as seen.
+        </p>
+    </div>
+
+    <div class="footnote">
+        🌱 all changes sync instantly across all users. admin can reset individual numbers by clicking on marked tiles.
+    </div>
+</div>
+
+<script src="script.js"></script>
+
+<!-- Add this inside the .toolbar div, next to admin-area -->
+<div class="admin-area">
+    <button id="adminLoginBtn" class="admin-toggle">🔑 admin login</button>
+    <button id="adminToggleBtn" class="admin-toggle" style="display: none;">🔧 admin mode</button>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="script.js"></script>
+</body>
+</html>
